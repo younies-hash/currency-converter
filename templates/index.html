@@ -1,23 +1,32 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="UTF-8">
         <title>Currency Converter</title>
+        <script src="https://unpkg.com/htmx.org@2.0.2"></script>
     </head>
     <body>
         <h1>Currency Converter</h1>
-        <form method="post" action="/convert">
-            <label for="amount">Amount:</label>
-            <input type="number" name="amount" placeholder="amount">
-            <br>
-            <label for="from_currency">From Currency:</label>
-            <input type="text" name="from_currency" placeholder="from_currency">
-            <br>
-            <label for="to_currency">To Currency:</label>
-            <input type="text" name="to_currency" placeholder="to_currency">
-            <br>
-            <button type="submit">Convert</button>
-            <br>
-            <label for="result">Result: {{ result }}</label>
-            <label for="result">{{ error }}</label>
-        </form>
+        <div>
+            <form>
+                <div>FROM:</div>
+                <select name="from_currency">
+                    {% for currency in currencies %}
+                    <option value="{{ currency }}">{{ currency }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" placeholder="enter amount" name="amount" required>
+                <button id="convert" hx-post="/convert" hx-target="#amount" hx-swap="innerHTML">convert</button>
+                <div>TO:</div>
+                <select name="to_currency">
+                    {% for currency in currencies %}
+                    <option value="{{ currency }}">{{ currency }}</option>
+                    {% endfor %}
+                </select>
+                <div id="amount"></div>
+            </form>
+        </div>
+        <div>
+
+        </div>
 </html>

@@ -8,3 +8,5 @@ def fetch_data():
         json.dump(data, FILE, indent=4)
         FILE.close()
     return data
+
+print(type(fetch_data()[0]))

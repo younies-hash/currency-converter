@@ -1,54 +1,120 @@
-#conversations
-#id, timesatmp, amount, from_currency, to_currency, rate, result
+#conversion 
+#id, timestamp, amount, base_currency, target_currency, rate, result
 
 #rates
-#id, date, base, quote, rate
+#id, date, target_currency, base_currency, rate
 
-import mysql
-from api import fetch_data
+# from currency = base
+# to currency = quote 
 
-class DB:
-    def __init__(self):
-        self.db = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            passwd='root',
-            database='currency_converter'
-        )
-        self.curser = self.db.cursor()
-        self.curser.execute('CREATE TABLE IF NOT EXISTS conversations (id INT AUTO_INCREMENT, timesatmp TIMESTAMP, amount INT, from_currency VARCHAR(3), to_currency VARCHAR(3), rate FLOAT, result FLOAT, PRIMARY KEY (id))')
-        self.curser.execute('CREATE TABLE IF NOT EXISTS rates (id INT AUTO_INCREMENT, date DATE, base VARCHAR(3), quote VARCHAR(3), rate FLOAT, PRIMARY KEY (id))')
+import sqlite3
+from contextlib import contextmanager
+
+class DataBase:
+    def __init__(self, path='conversions.db'):
+        self.path = path
+        self._create_tables()
         
-    def upodate_rates(self, rates):
-        for rate in rates:
-            self.curser.execute('INSERT INTO rates VALUES (NULL, ?, ?, ?, ?)', (rate['date'], rate['base'], rate['quote'], rate['rate']))
-        self.db.commit()
+    @contextmanager
+    def _connect(self):
+        conn = sqlite3.connect(self.path, timeout=10)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
         
-    def add_conversation(self, conversation):
-        sql = f'INSERT INTO conversations VALUES (NULL, {conversation.timesatmp}, {conversation.amount}, {conversation.from_currency}, {conversation.to_currency}, {conversation.rate}, {conversation.result})'
-        self.curser.execute(sql)
-        self.db.commit()
+    def _create_tables(self):
+        with self._connect() as conn:
+            conn.execute('''
+                            CREATE TABLE IF NOT EXISTS conversions (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp TEXT,
+                                amount REAL NOT NULL,
+                                base_currency TEXT NOT NULL,
+                                target_currency TEXT NOT NULL,
+                                rate REAL NOT NULL, 
+                                result REAL NOT NULL)
+                            ''')
         
-    def get_rates(self, from_currency=None, to_currency=None):
-        if from_currency is None or to_currency is None:
-            self.curser.execute('SELECT * FROM rates')
-            return
-        self.curser.execute(f'SELECT * FROM rates WHERE BASE = {from_currency} AND QUOTE = {to_currency}')
+            conn.execute('''
+                            CREATE TABLE IF NOT EXISTS rates (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                date TEXT,
+                                base_currency TEXT NOT NULL,
+                                target_currency TEXT NOT NULL,
+                                rate REAL NOT NULL)
+                                UNIQUE (date, base_currency, target_currency
+                                )
+                            ''')
+        
+    def update_rates(self, rates):
+        with self._connect() as conn:
+            for rate in rates:
+                conn.execute('''
+                    INSERT INTO rates 
+                    (date, base_currency, target_currency, rate) 
+                    VALUES (NULL, ?, ?, ?, ?)
+                    ON CONFLICT (date, base_currency, target_currency)
+                    DO UPDATE SET rate = excluded.rate
+                    ''',(
+                        rate['date'], 
+                        rate['base'], 
+                        rate['quote'], 
+                        rate['rate']
+                        )
+                    )
+        
+    def add_conversion(self, conversion):
+        with self._connect() as conn:
+            conn.execute('''
+                INSERT INTO conversion 
+                (timestamp, amount, base_currency, target_currency, rate, result) 
+                VALUES (NULL, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    conversion.timestamp, 
+                    conversion.amount, 
+                    conversion.base_currency, 
+                    conversion.target_currency, 
+                    conversion.rate, 
+                    conversion.result
+                    ))
+        
+    def get_rates(self, base_currency=None, target_currency=None):
+        sql = 'SELECT * FROM rates'
+        clauses, params = [], []
+        
+        if base_currency is not None:
+            clauses.append('base_currency = ?')
+            params.append(base_currency)
+        if target_currency is not None:
+            clauses.append('target_currency = ?')
+            params.append(target_currency
+                          )
+        if clauses:
+            sql += 'WHERE ' + ' AND '.join(clauses)
+        with self._connect() as conn:
+            return conn.execute(sql,params).fetchall()
     
-    def get_conversations(self, condition=None):
-        if condition is None:
-            self.curser.execute('SELECT * FROM conversations')
-            return
-        self.curser.execute('SELECT * FROM conversations WHERE ' + condition)
+    def get_conversion(self, limit=50):
+        with self._connect() as conn:
+            return conn.execute(
+                'SELECT * FROM conversion ORDER BY id DESC LIMIT ?', (limit,)
+            ).fetchall()
+        
     
-class conversations:
-    def __init__(self, timesatmp, amount, from_currency, to_currency, rate, result):
-        self.timesatmp = timesatmp
+class Conversion:
+    def __init__(self, timestamp, amount, base_currency, target_currency, rate, result):
+        self.timestamp = timestamp
         self.amount = amount
-        self.from_currency = from_currency
-        self.to_currency = to_currency
+        self.base_currency = base_currency
+        self.target_currency = target_currency
         self.rate = rate
         self.result = result
         
     def __str__(self):
-        return f'conversation: {self.timesatmp}, {self.amount}, {self.from_currency}, {self.to_currency}, {self.rate}, {self.result}'
+        return f'conversion: {self.timestamp}, {self.amount}, {self.base_currency}, {self.target_currency}, {self.rate}, {self.result}'

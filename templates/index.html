@@ -10,7 +10,7 @@
         <div>
             <form>
                 <div>FROM:</div>
-                <select name="from_currency">
+                <select name="base_currency">
                     {% for currency in currencies %}
                     <option value="{{ currency }}">{{ currency }}</option>
                     {% endfor %}
@@ -18,7 +18,7 @@
                 <input type="text" placeholder="enter amount" name="amount" required>
                 <button id="convert" hx-post="/convert" hx-target="#amount" hx-swap="innerHTML">convert</button>
                 <div>TO:</div>
-                <select name="to_currency">
+                <select name="target_currency">
                     {% for currency in currencies %}
                     <option value="{{ currency }}">{{ currency }}</option>
                     {% endfor %}
@@ -26,7 +26,6 @@
                 <div id="amount"></div>
             </form>
         </div>
-        <div>
-
-        </div>
+            <button id="show-history" hx-get="/history" hx-target="#history" hx-swap="innerHTML">history</button>
+        <div id="history"></div>
 </html>

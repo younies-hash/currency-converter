@@ -46,8 +46,26 @@ def convert_currency():
 
 @app.route('/history', methods=['GET'])
 def show_history():
-    return
-        
+    if request.method == 'GET':
+        history = db.get_conversions()
+        dumb = []
+        for item in history:
+            dumb.append(f'''
+                        id: {item[0]} | 
+                        timestamp: {item[1]} | 
+                        amount: {item[2]} | 
+                        base_currency: {item[3]} | 
+                        target_currency: {item[4]} | 
+                        rate: {item[5]} | 
+                        result: {item[6]}
+                        ''')
 
+        return render_template(
+            'partials/history.html', 
+            dumb=dumb
+            )
+    return render_template('index.html', error='ERROR: invalid request')
+
+        
 if __name__ == '__main__':
     app.run(debug=True)
